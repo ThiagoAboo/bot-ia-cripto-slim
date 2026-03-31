@@ -14,15 +14,16 @@
     <p class="muted">Comandos imediatos do bot</p>
   </div>
   <div class="actions">
-    <button class="btn btn-primary" onclick="systemAction('start')">Iniciar</button>
-    <button class="btn btn-secondary" onclick="systemAction('stop')">Parar</button>
-    <button class="btn btn-secondary" onclick="systemAction('start_simulated')">Iniciar simulado</button>
-    <button class="btn btn-secondary" onclick="systemAction('start_real')">Iniciar real</button>
-    <button class="btn btn-warning" onclick="systemAction('reset_wallet')">Reset carteira</button>
-    <button class="btn btn-secondary" onclick="systemAction('reload_config')">Recarregar config</button>
-    <button class="btn btn-secondary" onclick="systemAction('refresh_market')">Atualizar mercado</button>
-    <button class="btn btn-secondary" onclick="systemAction('refresh_social')">Atualizar social</button>
+    <button class="btn btn-primary js-action-btn" onclick="systemAction('start', this)">Iniciar</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('stop', this)">Parar</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('start_simulated', this)">Iniciar simulado</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('start_real', this)">Iniciar real</button>
+    <button class="btn btn-warning js-action-btn" onclick="systemAction('reset_wallet', this)">Reset carteira</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('reload_config', this)">Recarregar config</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('refresh_market', this)">Atualizar mercado</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('refresh_social', this)">Atualizar social</button>
   </div>
+  <div id="dashboard-feedback" class="alert hidden"></div>
 </section>
 
 <section class="grid split-grid">

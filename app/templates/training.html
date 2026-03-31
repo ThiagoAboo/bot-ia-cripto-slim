@@ -12,9 +12,9 @@
       <option value="random_forest">Random Forest</option>
       <option value="xgboost">XGBoost</option>
     </select>
-    <button class="btn btn-primary" onclick="trainModel()">Treinar agora</button>
-    <button class="btn btn-secondary" onclick="systemAction('refresh_market')">Carregar candles atualizados</button>
-    <button class="btn btn-secondary" onclick="systemAction('refresh_social')">Atualizar social</button>
+    <button class="btn btn-primary js-action-btn" onclick="trainModel(this)">Treinar agora</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('refresh_market', this)">Carregar candles atualizados</button>
+    <button class="btn btn-secondary js-action-btn" onclick="systemAction('refresh_social', this)">Atualizar social</button>
   </div>
   <div id="training-feedback" class="alert hidden"></div>
 </section>
@@ -33,8 +33,8 @@
         <pre>{{ model.metrics }}</pre>
       </div>
       <div class="actions vertical">
-        <button class="btn btn-secondary" onclick="activateModel('{{ model.id }}')">Selecionar como ativo</button>
-        <button class="btn btn-danger" onclick="deleteModel('{{ model.id }}')">Excluir modelo</button>
+        <button class="btn btn-secondary js-action-btn" onclick="activateModel('{{ model.id }}', this)">Selecionar como ativo</button>
+        <button class="btn btn-danger js-action-btn" onclick="deleteModel('{{ model.id }}', this)">Excluir modelo</button>
       </div>
     </div>
     {% endfor %}
