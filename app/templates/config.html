@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Configurações{% endblock %}
+{% block content %}
+<section class="grid split-grid">
+  <article class="card glass">
+    <div class="section-header">
+      <h3>bot_config.yaml</h3>
+      <p class="muted">Edite e salve com hot-reload</p>
+    </div>
+    <textarea id="config-yaml" class="code-area">{{ config_yaml }}</textarea>
+  </article>
+
+  <article class="card glass">
+    <div class="section-header">
+      <h3>symbols.yaml</h3>
+      <p class="muted">Lista base e lista simulada</p>
+    </div>
+    <textarea id="symbols-yaml" class="code-area">{{ symbols_yaml }}</textarea>
+  </article>
+</section>
+
+<section class="card glass">
+  <div class="actions">
+    <button class="btn btn-primary" onclick="saveConfig()">Salvar alterações</button>
+    <button class="btn btn-secondary" onclick="changePassword()">Alterar senha do painel</button>
+  </div>
+  <div id="config-feedback" class="alert hidden"></div>
+</section>
+{% endblock %}

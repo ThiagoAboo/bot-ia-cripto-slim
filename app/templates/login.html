@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - bot-ia-cripto</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="login-body">
+  <div class="login-card glass">
+    <div class="brand brand-login">
+      <div class="brand-badge">₿</div>
+      <div>
+        <h1>bot-ia-cripto</h1>
+        <p>Painel seguro</p>
+      </div>
+    </div>
+    <form method="post" action="/login" class="form-grid">
+      <label>
+        Usuário
+        <input type="text" name="username" placeholder="admin" required />
+      </label>
+      <label>
+        Senha
+        <input type="password" name="password" placeholder="••••••••" required />
+      </label>
+      {% if error %}
+      <div class="alert alert-error">{{ error }}</div>
+      {% endif %}
+      <button class="btn btn-primary" type="submit">Entrar</button>
+    </form>
+    <p class="muted center">Senha inicial padrão: <strong>admin123</strong></p>
+  </div>
+</body>
+</html>

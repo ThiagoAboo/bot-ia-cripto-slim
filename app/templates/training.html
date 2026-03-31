@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Treinamento{% endblock %}
+{% block content %}
+<section class="card glass">
+  <div class="section-header">
+    <h3>Novo treinamento</h3>
+    <p class="muted">Random Forest ou XGBoost, usando features históricas persistidas</p>
+  </div>
+  <div class="actions">
+    <input type="text" id="model-name" placeholder="Ex: Random Forest v2" />
+    <select id="model-type">
+      <option value="random_forest">Random Forest</option>
+      <option value="xgboost">XGBoost</option>
+    </select>
+    <button class="btn btn-primary" onclick="trainModel()">Treinar agora</button>
+    <button class="btn btn-secondary" onclick="systemAction('refresh_market')">Carregar candles atualizados</button>
+    <button class="btn btn-secondary" onclick="systemAction('refresh_social')">Atualizar social</button>
+  </div>
+  <div id="training-feedback" class="alert hidden"></div>
+</section>
+
+<section class="card glass">
+  <div class="section-header">
+    <h3>Modelos disponíveis</h3>
+    <p class="muted">Selecione o modelo ativo ou exclua versões antigas</p>
+  </div>
+  <div id="training-models" class="stack">
+    {% for model in models %}
+    <div class="model-card">
+      <div>
+        <h4>{{ model.name }} {% if model.is_active %}<span class="pill success">ativo</span>{% endif %}</h4>
+        <p class="muted">{{ model.model_type }} • {{ model.updated_at }}</p>
+        <pre>{{ model.metrics }}</pre>
+      </div>
+      <div class="actions vertical">
+        <button class="btn btn-secondary" onclick="activateModel('{{ model.id }}')">Selecionar como ativo</button>
+        <button class="btn btn-danger" onclick="deleteModel('{{ model.id }}')">Excluir modelo</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

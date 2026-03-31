@@ -1,0 +1,13 @@
+data/
+logs/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite
+*.sqlite3
+node_modules/
+dist/
+build/
+.venv/
+venv/

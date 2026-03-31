@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ app_name }} - {{ page|default("painel") }}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script defer src="/static/app.js"></script>
+</head>
+<body data-page="{{ page|default('dashboard') }}">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-badge">₿</div>
+        <div>
+          <h1>bot-ia-cripto</h1>
+          <p>V2 Slim</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="/" class="{% if page == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/config" class="{% if page == 'config' %}active{% endif %}">Configurações</a>
+        <a href="/traces" class="{% if page == 'traces' %}active{% endif %}">Trace View</a>
+        <a href="/training" class="{% if page == 'training' %}active{% endif %}">Treinamento</a>
+      </nav>
+      <form method="post" action="/logout" class="logout-box">
+        <button class="btn btn-secondary" type="submit">Sair</button>
+      </form>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2>{% block title %}{% endblock %}</h2>
+          <p class="muted">Operação 24/7 • Docker • Binance • IA configurável</p>
+        </div>
+        <div class="status-pill {{ runtime.system_status }}">
+          <span class="status-dot"></span>
+          {{ runtime.system_status }}
+        </div>
+      </header>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

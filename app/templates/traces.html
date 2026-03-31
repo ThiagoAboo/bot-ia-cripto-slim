@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Trace View{% endblock %}
+{% block content %}
+<section class="card glass">
+  <div class="section-header">
+    <h3>Filtros</h3>
+    <p class="muted">Consulta em SQLite e stream em tempo real</p>
+  </div>
+  <div class="filters">
+    <input type="text" id="trace-symbol" placeholder="Símbolo ex: BTCUSDT" />
+    <select id="trace-level">
+      <option value="">Todos os níveis</option>
+      <option value="INFO">INFO</option>
+      <option value="WARNING">WARNING</option>
+      <option value="ERROR">ERROR</option>
+    </select>
+    <button class="btn btn-primary" onclick="loadTraces()">Buscar</button>
+    <button class="btn btn-secondary" onclick="window.open('/api/traces/export?format=json','_blank')">Exportar JSON</button>
+    <button class="btn btn-secondary" onclick="window.open('/api/traces/export?format=csv','_blank')">Exportar CSV</button>
+  </div>
+</section>
+
+<section class="grid split-grid">
+  <article class="card glass">
+    <div class="section-header">
+      <h3>Histórico</h3>
+      <p class="muted">Consulta persistida</p>
+    </div>
+    <div id="trace-list" class="trace-list"></div>
+  </article>
+  <article class="card glass">
+    <div class="section-header">
+      <h3>Tempo real</h3>
+      <p class="muted">WebSocket /ws/logs</p>
+    </div>
+    <div id="live-trace-list" class="trace-list"></div>
+  </article>
+</section>
+{% endblock %}

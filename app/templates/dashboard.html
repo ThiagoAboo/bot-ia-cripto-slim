@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="grid cards-grid" id="dashboard-summary">
+  <article class="card glass"><h3>Status</h3><p class="metric" id="metric-status">carregando</p><span class="muted">Situação do sistema</span></article>
+  <article class="card glass"><h3>Modo</h3><p class="metric" id="metric-mode">-</p><span class="muted">Simulado ou real</span></article>
+  <article class="card glass"><h3>Patrimônio</h3><p class="metric" id="metric-portfolio">-</p><span class="muted">Valor total</span></article>
+  <article class="card glass"><h3>PnL total</h3><p class="metric" id="metric-pnl">-</p><span class="muted">Retorno acumulado</span></article>
+</section>
+
+<section class="card glass">
+  <div class="section-header">
+    <h3>Controles</h3>
+    <p class="muted">Comandos imediatos do bot</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" onclick="systemAction('start')">Iniciar</button>
+    <button class="btn btn-secondary" onclick="systemAction('stop')">Parar</button>
+    <button class="btn btn-secondary" onclick="systemAction('start_simulated')">Iniciar simulado</button>
+    <button class="btn btn-secondary" onclick="systemAction('start_real')">Iniciar real</button>
+    <button class="btn btn-warning" onclick="systemAction('reset_wallet')">Reset carteira</button>
+    <button class="btn btn-secondary" onclick="systemAction('reload_config')">Recarregar config</button>
+    <button class="btn btn-secondary" onclick="systemAction('refresh_market')">Atualizar mercado</button>
+    <button class="btn btn-secondary" onclick="systemAction('refresh_social')">Atualizar social</button>
+  </div>
+</section>
+
+<section class="grid split-grid">
+  <article class="card glass">
+    <div class="section-header">
+      <h3>Posições abertas</h3>
+      <p class="muted">Ativos na carteira</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Moeda</th><th>Qtd</th><th>Preço médio</th><th>Preço atual</th><th>Variação</th><th>PnL</th></tr></thead>
+        <tbody id="positions-body"></tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="card glass">
+    <div class="section-header">
+      <h3>Ordens recentes</h3>
+      <p class="muted">Executadas, simuladas ou bloqueadas</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data/Hora</th><th>Moeda</th><th>Tipo</th><th>Qtd</th><th>Preço</th><th>Taxa</th><th>Status</th></tr></thead>
+        <tbody id="orders-body"></tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section class="grid split-grid">
+  <article class="card glass">
+    <div class="section-header">
+      <h3>Modelos</h3>
+      <p class="muted">Registro local</p>
+    </div>
+    <div id="models-list" class="stack"></div>
+  </article>
+
+  <article class="card glass">
+    <div class="section-header">
+      <h3>Últimas atualizações</h3>
+      <p class="muted">Fontes e componentes</p>
+    </div>
+    <div id="runtime-list" class="stack"></div>
+  </article>
+</section>
+{% endblock %}
