@@ -2,6 +2,9 @@ const page = document.body.dataset.page;
 
 let actionInProgress = false;
 let feedbackTimer = null;
+let dashboardRefreshTimer = null;
+let dashboardRequestInFlight = null;
+let liveSocket = null;
 
 function fmtMoney(value) {
   const num = Number(value || 0);
@@ -65,6 +68,7 @@ function setLoadingOverlay(visible, message = 'Processando operação...') {
 
   overlay.classList.toggle('hidden', !visible);
   overlay.classList.toggle('visible', visible);
+  overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
   document.body.classList.toggle('is-busy', visible);
 }
 
@@ -139,25 +143,44 @@ async function runAction(options, task) {
 }
 
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const {
+    timeoutMs = 20000,
+    headers = {},
+    ...fetchOptions
+  } = options;
 
-  if (!response.ok) {
-    let message = `Erro ${response.status}`;
-    try {
-      const data = await response.json();
-      message = data.error || JSON.stringify(data);
-    } catch (_) {}
-    throw new Error(message);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', ...headers },
+      signal: controller.signal,
+      ...fetchOptions,
+    });
+
+    if (!response.ok) {
+      let message = `Erro ${response.status}`;
+      try {
+        const data = await response.json();
+        message = data.error || JSON.stringify(data);
+      } catch (_) {}
+      throw new Error(message);
+    }
+
+    if (response.status === 204) {
+      return {};
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('A operação demorou além do esperado. Tente novamente.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-
-  if (response.status === 204) {
-    return {};
-  }
-
-  return response.json();
 }
 
 function actionLabels(action) {
@@ -187,69 +210,129 @@ async function systemAction(action, button = null) {
     await fetchJson('/api/system/action', {
       method: 'POST',
       body: JSON.stringify({ action }),
+      timeoutMs: 30000,
     });
 
-    if (page === 'dashboard') await loadDashboard();
+    if (page === 'dashboard') {
+      await loadDashboard({ silent: true, force: true });
+    }
     if (page === 'training') await refreshModels();
     if (page === 'traces') await loadTraces();
   });
 }
 
-async function loadDashboard() {
-  const data = await fetchJson('/api/dashboard');
-  document.getElementById('metric-status').textContent = data.runtime.system_status;
-  document.getElementById('metric-mode').textContent = data.runtime.mode;
-  document.getElementById('metric-portfolio').textContent = fmtMoney(data.portfolio_value);
-  document.getElementById('metric-pnl').textContent = fmtMoney(data.pnl_total);
+async function loadDashboard(options = {}) {
+  const { silent = false, force = false } = options;
 
-  const positionsBody = document.getElementById('positions-body');
-  positionsBody.innerHTML = data.positions.length ? data.positions.map((row) => `
-    <tr>
-      <td>${row.symbol}</td>
-      <td>${fmtNum(row.quantity, 6)}</td>
-      <td>${fmtMoney(row.avg_price)}</td>
-      <td>${fmtMoney(row.current_price)}</td>
-      <td class="${row.variation_pct >= 0 ? 'positive' : 'negative'}">${fmtNum(row.variation_pct, 2)}%</td>
-      <td class="${row.pnl_usdt >= 0 ? 'positive' : 'negative'}">${fmtMoney(row.pnl_usdt)}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="6">Sem posições abertas.</td></tr>';
+  if (dashboardRequestInFlight && !force) {
+    return dashboardRequestInFlight;
+  }
 
-  const ordersBody = document.getElementById('orders-body');
-  ordersBody.innerHTML = data.orders.length ? data.orders.map((row) => `
-    <tr>
-      <td>${row.created_at}</td>
-      <td>${row.symbol}</td>
-      <td>${row.side}</td>
-      <td>${fmtNum(row.quantity, 6)}</td>
-      <td>${fmtMoney(row.price)}</td>
-      <td>${fmtNum(row.fee_amount, 6)} ${row.fee_asset || ''}</td>
-      <td>${row.status}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="7">Sem ordens.</td></tr>';
+  const promise = (async () => {
+    const data = await fetchJson('/api/dashboard', {
+      timeoutMs: 15000,
+      headers: { 'Cache-Control': 'no-cache' },
+    });
 
-  const modelsList = document.getElementById('models-list');
-  modelsList.innerHTML = data.models.map((model) => `
-    <div class="model-card">
-      <div>
-        <strong>${model.name}</strong> ${model.is_active ? '<span class="pill success">ativo</span>' : ''}
-        <div class="muted">${model.model_type} • ${model.updated_at}</div>
+    const statusEl = document.getElementById('metric-status');
+    const modeEl = document.getElementById('metric-mode');
+    const portfolioEl = document.getElementById('metric-portfolio');
+    const pnlEl = document.getElementById('metric-pnl');
+    const positionsBody = document.getElementById('positions-body');
+    const ordersBody = document.getElementById('orders-body');
+    const modelsList = document.getElementById('models-list');
+    const runtimeList = document.getElementById('runtime-list');
+
+    if (!statusEl || !modeEl || !portfolioEl || !pnlEl || !positionsBody || !ordersBody || !modelsList || !runtimeList) {
+      return data;
+    }
+
+    statusEl.textContent = data.runtime.system_status;
+    modeEl.textContent = data.runtime.mode;
+    portfolioEl.textContent = fmtMoney(data.portfolio_value);
+    pnlEl.textContent = fmtMoney(data.pnl_total);
+
+    positionsBody.innerHTML = data.positions.length ? data.positions.map((row) => `
+      <tr>
+        <td>${row.symbol}</td>
+        <td>${fmtNum(row.quantity, 6)}</td>
+        <td>${fmtMoney(row.avg_price)}</td>
+        <td>${fmtMoney(row.current_price)}</td>
+        <td class="${row.variation_pct >= 0 ? 'positive' : 'negative'}">${fmtNum(row.variation_pct, 2)}%</td>
+        <td class="${row.pnl_usdt >= 0 ? 'positive' : 'negative'}">${fmtMoney(row.pnl_usdt)}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="6">Sem posições abertas.</td></tr>';
+
+    ordersBody.innerHTML = data.orders.length ? data.orders.map((row) => `
+      <tr>
+        <td>${row.created_at}</td>
+        <td>${row.symbol}</td>
+        <td>${row.side}</td>
+        <td>${fmtNum(row.quantity, 6)}</td>
+        <td>${fmtMoney(row.price)}</td>
+        <td>${fmtNum(row.fee_amount, 6)} ${row.fee_asset || ''}</td>
+        <td>${row.status}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="7">Sem ordens.</td></tr>';
+
+    modelsList.innerHTML = data.models.map((model) => `
+      <div class="model-card">
+        <div>
+          <strong>${model.name}</strong> ${model.is_active ? '<span class="pill success">ativo</span>' : ''}
+          <div class="muted">${model.model_type} • ${model.updated_at}</div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `).join('');
 
-  const runtimeList = document.getElementById('runtime-list');
-  const runtime = data.runtime;
-  const items = [
-    ['Último mercado', runtime.last_market_update],
-    ['Último social', runtime.last_social_update],
-    ['Último RSS', runtime.last_rss_update],
-    ['Últimas features', runtime.last_feature_update],
-    ['Última inferência', runtime.last_inference_update],
-    ['Última ordem', runtime.last_order_update],
-    ['Modelo ativo', runtime.active_model_id],
-    ['Símbolos ativos', (runtime.active_symbols || []).join(', ')],
-  ];
-  runtimeList.innerHTML = items.map(([key, value]) => `<div class="model-card"><strong>${key}</strong><div class="muted">${value || '-'}</div></div>`).join('');
+    const runtime = data.runtime;
+    const items = [
+      ['Último mercado', runtime.last_market_update],
+      ['Último social', runtime.last_social_update],
+      ['Último RSS', runtime.last_rss_update],
+      ['Últimas features', runtime.last_feature_update],
+      ['Última inferência', runtime.last_inference_update],
+      ['Última ordem', runtime.last_order_update],
+      ['Modelo ativo', runtime.active_model_id],
+      ['Símbolos ativos', (runtime.active_symbols || []).join(', ')],
+    ];
+    runtimeList.innerHTML = items.map(([key, value]) => `<div class="model-card"><strong>${key}</strong><div class="muted">${value || '-'}</div></div>`).join('');
+
+    return data;
+  })();
+
+  dashboardRequestInFlight = promise;
+
+  try {
+    return await promise;
+  } catch (error) {
+    if (!silent) {
+      toast('dashboard-feedback', error?.message || 'Falha ao atualizar o dashboard.', true);
+    }
+    throw error;
+  } finally {
+    if (dashboardRequestInFlight === promise) {
+      dashboardRequestInFlight = null;
+    }
+  }
+}
+
+function scheduleDashboardRefresh() {
+  if (page !== 'dashboard') return;
+  if (dashboardRefreshTimer) {
+    window.clearTimeout(dashboardRefreshTimer);
+  }
+
+  dashboardRefreshTimer = window.setTimeout(async () => {
+    try {
+      if (!actionInProgress) {
+        await loadDashboard({ silent: true });
+      }
+    } catch (_) {
+      // feedback silencioso no auto refresh
+    } finally {
+      scheduleDashboardRefresh();
+    }
+  }, 5000);
 }
 
 async function saveConfig(button = null) {
@@ -266,6 +349,7 @@ async function saveConfig(button = null) {
         config_yaml: document.getElementById('config-yaml').value,
         symbols_yaml: document.getElementById('symbols-yaml').value,
       }),
+      timeoutMs: 25000,
     });
   });
 }
@@ -335,8 +419,8 @@ async function loadTraces(button = null) {
 
 function initLiveLogs() {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const socket = new WebSocket(`${protocol}://${window.location.host}/ws/logs`);
-  socket.onmessage = (event) => {
+  liveSocket = new WebSocket(`${protocol}://${window.location.host}/ws/logs`);
+  liveSocket.onmessage = (event) => {
     const payload = JSON.parse(event.data);
     renderTraceRows(payload.rows || [], 'live-trace-list');
   };
@@ -356,6 +440,7 @@ async function trainModel(button = null) {
     const response = await fetchJson('/api/models/train', {
       method: 'POST',
       body: JSON.stringify({ model_name: modelName, model_type: modelType }),
+      timeoutMs: 90000,
     });
 
     toast('training-feedback', `Treinamento concluído: ${response.model.name}`, false);
@@ -429,10 +514,34 @@ function triggerTraceExport(format, button = null) {
   window.setTimeout(() => setButtonLoading(button, false), 900);
 }
 
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && dashboardRefreshTimer) {
+    window.clearTimeout(dashboardRefreshTimer);
+    dashboardRefreshTimer = null;
+  } else if (!document.hidden && page === 'dashboard') {
+    scheduleDashboardRefresh();
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  if (dashboardRefreshTimer) {
+    window.clearTimeout(dashboardRefreshTimer);
+    dashboardRefreshTimer = null;
+  }
+  if (liveSocket) {
+    liveSocket.close();
+  }
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
   if (page === 'dashboard') {
-    await loadDashboard();
-    setInterval(loadDashboard, 5000);
+    try {
+      await loadDashboard({ silent: true });
+    } catch (error) {
+      toast('dashboard-feedback', error?.message || 'Falha ao carregar o dashboard.', true);
+    } finally {
+      scheduleDashboardRefresh();
+    }
   }
 
   if (page === 'traces') {

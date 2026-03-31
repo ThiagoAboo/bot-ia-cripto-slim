@@ -91,6 +91,18 @@ class ConfigManager:
                 encoding="utf-8",
             )
 
+    def save_config_text(self, raw_text: str) -> None:
+        with self._lock:
+            yaml.safe_load(raw_text)
+            self.config_path.write_text(raw_text.rstrip() + "\n", encoding="utf-8")
+            self._config = expand_env(yaml.safe_load(raw_text) or {})
+
+    def save_symbols_text(self, raw_text: str) -> None:
+        with self._lock:
+            yaml.safe_load(raw_text)
+            self.symbols_path.write_text(raw_text.rstrip() + "\n", encoding="utf-8")
+            self._symbols = yaml.safe_load(raw_text) or {}
+
 
 def password_matches(plain_text: str, hashed: str) -> bool:
     if hashed.startswith("plain:"):

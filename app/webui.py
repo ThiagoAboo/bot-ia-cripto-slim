@@ -151,10 +151,22 @@ class WebUI:
         async def api_save_config(payload: dict[str, Any]):
             import yaml
 
-            config_data = yaml.safe_load(payload["config_yaml"])
-            symbols_data = yaml.safe_load(payload["symbols_yaml"])
-            self.config_manager.save_config(config_data)
-            self.config_manager.save_symbols(symbols_data)
+            config_yaml = payload.get("config_yaml", "")
+            symbols_yaml = payload.get("symbols_yaml", "")
+
+            try:
+                yaml.safe_load(config_yaml)
+                yaml.safe_load(symbols_yaml)
+            except yaml.YAMLError as exc:
+                mark = getattr(exc, "problem_mark", None)
+                if mark is not None:
+                    message = f"YAML inválido na linha {mark.line + 1}, coluna {mark.column + 1}: {exc}"
+                else:
+                    message = f"YAML inválido: {exc}"
+                return JSONResponse({"ok": False, "error": message}, status_code=400)
+
+            self.config_manager.save_config_text(config_yaml)
+            self.config_manager.save_symbols_text(symbols_yaml)
             self.config_manager.reload()
             self.runtime_state.mode = self.config_manager.get()["general"]["trade_mode"]
             self.runtime_state.active_symbols = set(self.config_manager.get_symbols().get("base_symbols", []))
