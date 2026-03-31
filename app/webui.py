@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Form, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from .utils import hash_password, make_csv, password_matches, safe_float
+from .utils import hash_password, make_csv, password_matches
 
 
 class WebUI:
@@ -32,18 +32,18 @@ class WebUI:
     def _build_app(self) -> FastAPI:
         config = self.config_manager.get()
         app = FastAPI(title="bot-ia-cripto", version="2.0-slim")
-        app.add_middleware(SessionMiddleware, secret_key=config["webui"]["session_secret"])
         static_dir = Path(__file__).resolve().parent / "static"
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+        public_prefixes = ("/static", "/login", "/health", "/favicon.ico", "/.well-known", "/docs", "/openapi.json")
+
         @app.middleware("http")
         async def ensure_auth(request: Request, call_next):
-            if request.url.path.startswith("/static") or request.url.path.startswith("/login") or request.url.path.startswith("/health"):
-                return await call_next(request)
-            if request.url.path.startswith("/ws"):
+            path = request.url.path
+            if path.startswith(public_prefixes) or path.startswith("/ws"):
                 return await call_next(request)
             if not request.session.get("authenticated"):
-                return RedirectResponse("/login")
+                return RedirectResponse("/login", status_code=303)
             return await call_next(request)
 
         @app.get("/health")
@@ -52,7 +52,7 @@ class WebUI:
 
         @app.get("/login", response_class=HTMLResponse)
         async def login_page(request: Request):
-            return self.templates.TemplateResponse("login.html", {"request": request, "error": None})
+            return self.templates.TemplateResponse(request, "login.html", {"error": None})
 
         @app.post("/login", response_class=HTMLResponse)
         async def login(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -60,7 +60,7 @@ class WebUI:
             if username == auth["username"] and password_matches(password, auth["password_hash"]):
                 request.session["authenticated"] = True
                 return RedirectResponse("/", status_code=303)
-            return self.templates.TemplateResponse("login.html", {"request": request, "error": "Usuário ou senha inválidos."})
+            return self.templates.TemplateResponse(request, "login.html", {"error": "Usuário ou senha inválidos."})
 
         @app.post("/logout")
         async def logout(request: Request):
@@ -71,7 +71,7 @@ class WebUI:
         async def dashboard(request: Request):
             context = self._base_context(request)
             context["page"] = "dashboard"
-            return self.templates.TemplateResponse("dashboard.html", context)
+            return self.templates.TemplateResponse(request, "dashboard.html", context)
 
         @app.get("/config", response_class=HTMLResponse)
         async def config_page(request: Request):
@@ -79,20 +79,20 @@ class WebUI:
             context["page"] = "config"
             context["config_yaml"] = Path(self.config_manager.config_path).read_text(encoding="utf-8")
             context["symbols_yaml"] = Path(self.config_manager.symbols_path).read_text(encoding="utf-8")
-            return self.templates.TemplateResponse("config.html", context)
+            return self.templates.TemplateResponse(request, "config.html", context)
 
         @app.get("/traces", response_class=HTMLResponse)
         async def traces_page(request: Request):
             context = self._base_context(request)
             context["page"] = "traces"
-            return self.templates.TemplateResponse("traces.html", context)
+            return self.templates.TemplateResponse(request, "traces.html", context)
 
         @app.get("/training", response_class=HTMLResponse)
         async def training_page(request: Request):
             context = self._base_context(request)
             context["page"] = "training"
             context["models"] = self.model_registry.list_models()
-            return self.templates.TemplateResponse("training.html", context)
+            return self.templates.TemplateResponse(request, "training.html", context)
 
         @app.get("/api/dashboard")
         async def api_dashboard():
@@ -136,6 +136,8 @@ class WebUI:
                 self.db.reset_simulated_wallet(self.config_manager.get()["risk"]["simulated_initial_balance"])
             elif action == "reload_config":
                 self.config_manager.reload()
+                self.runtime_state.mode = self.config_manager.get()["general"]["trade_mode"]
+                self.runtime_state.active_symbols = set(self.config_manager.get_symbols().get("base_symbols", []))
             elif action == "refresh_market":
                 self.collector.force_refresh_market()
             elif action == "refresh_social":
@@ -246,6 +248,14 @@ class WebUI:
                         last_trace_id = current_last
             except WebSocketDisconnect:
                 return
+
+        app.add_middleware(
+            SessionMiddleware,
+            secret_key=config["webui"]["session_secret"],
+            same_site="lax",
+            https_only=False,
+            session_cookie="bot_ia_cripto_session",
+        )
 
         return app
 

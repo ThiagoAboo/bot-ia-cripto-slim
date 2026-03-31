@@ -10,7 +10,7 @@ import time
 import uuid
 from collections import deque
 from copy import deepcopy
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
@@ -180,6 +180,35 @@ def make_csv(rows: list[dict[str, Any]]) -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
+def _stable_snapshot_copy(value: Any, *, retries: int = 5, delay: float = 0.002) -> Any:
+    for attempt in range(retries):
+        try:
+            if isinstance(value, deque):
+                return [_stable_snapshot_copy(item, retries=1, delay=delay) for item in list(value)]
+            if isinstance(value, dict):
+                return {key: _stable_snapshot_copy(item, retries=1, delay=delay) for key, item in list(value.items())}
+            if isinstance(value, set):
+                return sorted(_stable_snapshot_copy(item, retries=1, delay=delay) for item in list(value))
+            if isinstance(value, list):
+                return [_stable_snapshot_copy(item, retries=1, delay=delay) for item in list(value)]
+            if isinstance(value, tuple):
+                return [_stable_snapshot_copy(item, retries=1, delay=delay) for item in list(value)]
+            return deepcopy(value)
+        except RuntimeError:
+            if attempt == retries - 1:
+                break
+            time.sleep(delay)
+
+    if isinstance(value, dict):
+        return {}
+    if isinstance(value, (list, tuple, deque, set)):
+        return []
+    try:
+        return deepcopy(value)
+    except Exception:
+        return None
+
+
 @dataclass
 class RuntimeState:
     running: bool = True
@@ -205,9 +234,29 @@ class RuntimeState:
     last_error: str | None = None
 
     def snapshot(self) -> dict[str, Any]:
-        data = asdict(self)
-        data["active_symbols"] = sorted(self.active_symbols)
-        return data
+        return {
+            "running": self.running,
+            "mode": self.mode,
+            "last_market_update": self.last_market_update,
+            "last_social_update": self.last_social_update,
+            "last_rss_update": self.last_rss_update,
+            "last_feature_update": self.last_feature_update,
+            "last_inference_update": self.last_inference_update,
+            "last_order_update": self.last_order_update,
+            "system_status": self.system_status,
+            "active_model_id": self.active_model_id,
+            "active_symbols": _stable_snapshot_copy(self.active_symbols),
+            "strong_symbols": _stable_snapshot_copy(self.strong_symbols),
+            "latest_prices": _stable_snapshot_copy(self.latest_prices),
+            "latest_book": _stable_snapshot_copy(self.latest_book),
+            "latest_features": _stable_snapshot_copy(self.latest_features),
+            "latest_predictions": _stable_snapshot_copy(self.latest_predictions),
+            "latest_social_scores": _stable_snapshot_copy(self.latest_social_scores),
+            "latest_rss_scores": _stable_snapshot_copy(self.latest_rss_scores),
+            "log_buffer": _stable_snapshot_copy(self.log_buffer),
+            "training_jobs": _stable_snapshot_copy(self.training_jobs),
+            "last_error": self.last_error,
+        }
 
 
 class EventBus:

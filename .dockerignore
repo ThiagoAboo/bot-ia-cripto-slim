@@ -1,0 +1,14 @@
+.git
+.gitignore
+.gitattributes
+__pycache__/
+*.py[cod]
+.env
+.env.local
+data/
+logs/
+node_modules/
+dist/
+build/
+.vscode/
+.idea/

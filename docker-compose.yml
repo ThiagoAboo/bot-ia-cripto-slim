@@ -9,6 +9,7 @@ services:
     env_file:
       - .env
     environment:
+      APP_BASE_DIR: /app
       BINANCE_API_KEY: ${BINANCE_API_KEY:-}
       BINANCE_SECRET: ${BINANCE_SECRET:-}
       TRADE_MODE: ${TRADE_MODE:-simulated}
@@ -16,4 +17,10 @@ services:
     volumes:
       - ./config:/app/config
       - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped

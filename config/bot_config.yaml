@@ -60,7 +60,7 @@ social:
 ai_model:
   default_model_name: random_forest
   active_model_id: bootstrap-rf
-  models_path: /app/config/models
+  models_path: ${APP_BASE_DIR}/config/models
   inference_batch_size: 10
   min_confidence: 0.6
   label_horizon_candles: 6
@@ -80,7 +80,7 @@ risk:
   min_order_usdt: 15.0
 
 tracing:
-  db_path: /app/data/bot.db
+  db_path: ${APP_BASE_DIR}/data/bot.db
   retention_days: 30
 
 webui:

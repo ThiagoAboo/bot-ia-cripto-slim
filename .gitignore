@@ -1,13 +1,31 @@
-data/
-logs/
+.env
+.env.local
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
 *.db
 *.sqlite
 *.sqlite3
+
+# Runtime data
+/data/
+/logs/
+*.log
+
+# Model artifacts
+config/models/*.joblib
+config/models/*.json
+
+# Frontend/build noise
 node_modules/
 dist/
 build/
+
+# Virtualenvs / editor files
 .venv/
 venv/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
